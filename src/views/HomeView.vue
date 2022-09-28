@@ -1,0 +1,266 @@
+<script setup lang="ts">
+import AudioControllers from "../components/AudioControllers.vue";
+import TrackBar from "../components/TrackBar.vue";
+import SpinnerLoading from "../components/SpinnerLoading.vue";
+import SongItem from "../components/SongItem.vue";
+</script>
+
+<script lang="ts">
+interface Song {
+  id: number;
+  name: string;
+  url: string;
+  artist: string;
+}
+
+export default {
+  data() {
+    return {
+      isPlaying: false,
+      volume: 1.0,
+      audioDuration: 1000,
+      activeAudioDuration: 0,
+      isLoading: true,
+      activeSong: null as HTMLAudioElement | null,
+      activeId: null as number | null,
+    };
+  },
+  methods: {
+    handlePlay(isPlay: boolean): void {
+      if (this.activeSong) {
+        this.isPlaying = isPlay;
+      }
+      if (!isPlay && !!this.activeSong) {
+        this.activeSong.pause();
+      }
+      if (isPlay && !!this.activeSong) {
+        this.activeSong.play();
+      }
+    },
+    handleNext(): void {
+      if (this.activeSong && this.activeId) {
+        const currentSongIndex = this.songs.findIndex(
+          (item: Song) => item.id === this.activeId
+        );
+        if (currentSongIndex > -1) {
+          if (currentSongIndex < this.songs.length - 1) {
+            const nextSong = this.songs[currentSongIndex + 1];
+            this.audioDuration = 0;
+            this.activeAudioDuration = 0;
+            if (this.activeSong && this.activeId !== nextSong.id) {
+              this.activeSong.pause();
+              this.activeSong.currentTime = 0;
+              this.activeAudioDuration = 0;
+            }
+            const audioPlayer = document.getElementById(
+              `audio-${nextSong.id}`
+            ) as HTMLAudioElement;
+            if (audioPlayer) {
+              this.activeSong = audioPlayer;
+            }
+          }
+        }
+      }
+    },
+    handlePrev(): void {
+      if (this.activeSong && this.activeId) {
+        const currentSongIndex = this.songs.findIndex(
+          (item: Song) => item.id === this.activeId
+        );
+        if (currentSongIndex > -1) {
+          if (currentSongIndex > 0) {
+            const prevSong = this.songs[currentSongIndex - 1];
+            this.audioDuration = 0;
+            this.activeAudioDuration = 0;
+            if (this.activeSong && this.activeId !== prevSong.id) {
+              this.activeSong.pause();
+              this.activeSong.currentTime = 0;
+              this.activeAudioDuration = 0;
+            }
+            const audioPlayer = document.getElementById(
+              `audio-${prevSong.id}`
+            ) as HTMLAudioElement;
+            if (audioPlayer) {
+              this.activeSong = audioPlayer;
+            }
+          }
+        }
+      }
+    },
+    setActiveAudioDuration(value: number): void {
+      this.activeAudioDuration = value;
+      if (this.activeSong) {
+        this.activeSong.currentTime = value;
+      }
+    },
+    setVolume(value: number): void {
+      this.volume = value;
+      if (this.activeSong) {
+        this.activeSong.volume = value;
+      }
+    },
+    handleStartMusic(id: number) {
+      const song = this.songs.find((item: Song) => item.id === id);
+      if (song) {
+        if (this.activeSong && this.activeId !== song.id) {
+          this.activeSong.pause();
+          this.activeSong.currentTime = 0;
+          this.activeAudioDuration = 0;
+        }
+        const audioPlayer = document.getElementById(
+          `audio-${song.id}`
+        ) as HTMLAudioElement;
+        if (audioPlayer) {
+          this.activeSong = audioPlayer;
+        }
+      }
+    },
+    onChangeDuration(time: number): void {
+      if (time >= this.activeAudioDuration) {
+        this.activeAudioDuration = time;
+      }
+    },
+  },
+  mounted() {
+    setTimeout(() => {
+      this.$store.commit("setSongs", [
+        {
+          id: 1,
+          name: "Song 1",
+          url: "/songs/song-1.mp3",
+          artist: "Artist 1",
+        },
+        {
+          id: 2,
+          name: "Song 2",
+          url: "/songs/song-2.mp3",
+          artist: "Artist 2",
+        },
+        {
+          id: 3,
+          name: "Song 3",
+          url: "/songs/song-3.mp3",
+          artist: "Artist 3",
+        },
+        {
+          id: 4,
+          name: "Song 4",
+          url: "/songs/song-4.mp3",
+          artist: "Artist 4",
+        },
+        {
+          id: 5,
+          name: "Song 5",
+          url: "/songs/song-5.mp3",
+          artist: "Artist 5",
+        },
+        {
+          id: 6,
+          name: "Song 6",
+          url: "/songs/song-6.mp3",
+          artist: "Artist 6",
+        },
+      ]);
+      this.isLoading = false;
+    }, 1500);
+  },
+  computed: {
+    songs() {
+      return this.$store.state.songs;
+    },
+  },
+  watch: {
+    activeSong: function (value: HTMLAudioElement) {
+      this.audioDuration = value.duration;
+      this.isPlaying = true;
+      this.activeId = parseInt(value.id.split("-")[1]);
+      value.volume = this.volume;
+      value.play();
+    },
+  },
+};
+</script>
+
+<template>
+  <main>
+    <div class="audio">
+      <AudioControllers
+        :handlePrev="handlePrev"
+        :handlePlay="handlePlay"
+        :handleNext="handleNext"
+        :isPlaying="isPlaying"
+      />
+      <TrackBar
+        :duration="audioDuration"
+        :activeDuration="activeAudioDuration"
+        :handleSetActiveDuration="setActiveAudioDuration"
+        class="audio__track"
+      />
+      <TrackBar
+        :duration="1.0"
+        :activeDuration="volume"
+        :handleSetActiveDuration="setVolume"
+        class="audio__volume"
+      />
+    </div>
+    <div v-if="isLoading">
+      <SpinnerLoading />
+    </div>
+    <div v-else class="songs">
+      <div v-for="song of songs" :key="song.id">
+        <SongItem
+          :id="song.id"
+          :name="song.name"
+          :url="song.url"
+          :artist="song.artist"
+          :isActive="activeId == song.id"
+          :handleStartMusic="handleStartMusic"
+          :onChangeDuration="onChangeDuration"
+        />
+      </div>
+    </div>
+  </main>
+</template>
+
+<style scoped>
+.audio {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+@media screen and (max-width: 450px) {
+  .audio {
+    flex-direction: column;
+  }
+}
+
+.audio__track {
+  margin-left: 15px;
+  width: 100%;
+}
+
+@media screen and (max-width: 450px) {
+  .audio__track {
+    margin-left: 0;
+    margin-top: 10px;
+  }
+}
+
+.audio__volume {
+  margin-left: 15px;
+  width: 30%;
+}
+
+@media screen and (max-width: 450px) {
+  .audio__volume {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 15px;
+  }
+}
+
+.songs {
+  margin-top: 20px;
+}
+</style>
