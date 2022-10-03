@@ -6,23 +6,29 @@ import SongItem from "../components/SongItem.vue";
 </script>
 
 <script lang="ts">
-interface Song {
-  id: number;
-  name: string;
-  url: string;
-  artist: string;
+import { songs } from "../utils/songs";
+import type { Song } from "../global.types";
+
+interface Data {
+  isPlaying: boolean;
+  volume: number;
+  audioDuration: number;
+  activeAudioDuration: number;
+  isLoading: boolean;
+  activeSong: HTMLAudioElement | null;
+  activeId: number | null;
 }
 
 export default {
-  data() {
+  data(): Data {
     return {
       isPlaying: false,
       volume: 1.0,
       audioDuration: 1000,
       activeAudioDuration: 0,
       isLoading: true,
-      activeSong: null as HTMLAudioElement | null,
-      activeId: null as number | null,
+      activeSong: null,
+      activeId: null,
     };
   },
   methods: {
@@ -36,6 +42,10 @@ export default {
       if (isPlay && !!this.activeSong) {
         this.activeSong.play();
       }
+      if (isPlay && !this.activeSong) {
+        this.isPlaying = isPlay;
+        this.handleStartMusic(this.songs[0].id);
+      }
     },
     handleNext(): void {
       if (this.activeSong && this.activeId) {
@@ -45,12 +55,9 @@ export default {
         if (currentSongIndex > -1) {
           if (currentSongIndex < this.songs.length - 1) {
             const nextSong = this.songs[currentSongIndex + 1];
-            this.audioDuration = 0;
-            this.activeAudioDuration = 0;
+            this.resetDurations();
             if (this.activeSong && this.activeId !== nextSong.id) {
-              this.activeSong.pause();
-              this.activeSong.currentTime = 0;
-              this.activeAudioDuration = 0;
+              this.resetActiveSong();
             }
             const audioPlayer = document.getElementById(
               `audio-${nextSong.id}`
@@ -58,6 +65,8 @@ export default {
             if (audioPlayer) {
               this.activeSong = audioPlayer;
             }
+          } else {
+            this.handleStartMusic(this.songs[0].id);
           }
         }
       }
@@ -70,12 +79,9 @@ export default {
         if (currentSongIndex > -1) {
           if (currentSongIndex > 0) {
             const prevSong = this.songs[currentSongIndex - 1];
-            this.audioDuration = 0;
-            this.activeAudioDuration = 0;
+            this.resetDurations();
             if (this.activeSong && this.activeId !== prevSong.id) {
-              this.activeSong.pause();
-              this.activeSong.currentTime = 0;
-              this.activeAudioDuration = 0;
+              this.resetActiveSong();
             }
             const audioPlayer = document.getElementById(
               `audio-${prevSong.id}`
@@ -83,13 +89,26 @@ export default {
             if (audioPlayer) {
               this.activeSong = audioPlayer;
             }
+          } else {
+            this.handleStartMusic(this.songs[this.songs.length - 1].id);
           }
         }
       }
     },
-    setActiveAudioDuration(value: number): void {
-      this.activeAudioDuration = value;
+    resetDurations(): void {
+      this.audioDuration = 0;
+      this.activeAudioDuration = 0;
+    },
+    resetActiveSong(): void {
       if (this.activeSong) {
+        this.activeSong.pause();
+        this.activeSong.currentTime = 0;
+        this.activeAudioDuration = 0;
+      }
+    },
+    setActiveAudioDuration(value: number): void {
+      if (this.activeSong) {
+        this.activeAudioDuration = value;
         this.activeSong.currentTime = value;
       }
     },
@@ -99,7 +118,7 @@ export default {
         this.activeSong.volume = value;
       }
     },
-    handleStartMusic(id: number) {
+    handleStartMusic(id: number): void {
       const song = this.songs.find((item: Song) => item.id === id);
       if (song) {
         if (this.activeSong && this.activeId !== song.id) {
@@ -120,49 +139,15 @@ export default {
         this.activeAudioDuration = time;
       }
     },
+    handleAudioEnded(): void {
+      if (this.activeSong && this.activeId) {
+        this.handleNext();
+      }
+    },
   },
   mounted() {
-    setTimeout(() => {
-      this.$store.commit("setSongs", [
-        {
-          id: 1,
-          name: "Song 1",
-          url: "/songs/song-1.mp3",
-          artist: "Artist 1",
-        },
-        {
-          id: 2,
-          name: "Song 2",
-          url: "/songs/song-2.mp3",
-          artist: "Artist 2",
-        },
-        {
-          id: 3,
-          name: "Song 3",
-          url: "/songs/song-3.mp3",
-          artist: "Artist 3",
-        },
-        {
-          id: 4,
-          name: "Song 4",
-          url: "/songs/song-4.mp3",
-          artist: "Artist 4",
-        },
-        {
-          id: 5,
-          name: "Song 5",
-          url: "/songs/song-5.mp3",
-          artist: "Artist 5",
-        },
-        {
-          id: 6,
-          name: "Song 6",
-          url: "/songs/song-6.mp3",
-          artist: "Artist 6",
-        },
-      ]);
-      this.isLoading = false;
-    }, 1500);
+    this.$store.commit("setSongs", songs);
+    this.isLoading = false;
   },
   computed: {
     songs() {
@@ -195,12 +180,15 @@ export default {
         :activeDuration="activeAudioDuration"
         :handleSetActiveDuration="setActiveAudioDuration"
         class="audio__track"
+        durationType="seconds"
       />
       <TrackBar
         :duration="1.0"
         :activeDuration="volume"
         :handleSetActiveDuration="setVolume"
         class="audio__volume"
+        durationType="percent"
+        durationName="Volume"
       />
     </div>
     <div v-if="isLoading">
@@ -216,6 +204,7 @@ export default {
           :isActive="activeId == song.id"
           :handleStartMusic="handleStartMusic"
           :onChangeDuration="onChangeDuration"
+          :handleEnded="handleAudioEnded"
         />
       </div>
     </div>
@@ -256,7 +245,7 @@ export default {
   .audio__volume {
     width: 100%;
     margin-left: 0;
-    margin-top: 15px;
+    margin-top: 20px;
   }
 }
 

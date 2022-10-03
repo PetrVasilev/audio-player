@@ -1,5 +1,5 @@
 <script setup lang="ts">
-interface Song {
+interface SongItemProps {
   id: number;
   name: string;
   url: string;
@@ -7,22 +7,27 @@ interface Song {
   isActive: boolean;
   handleStartMusic: Function;
   onChangeDuration: Function;
+  handleEnded: Function;
 }
 
-defineProps<Song>();
+defineProps<SongItemProps>();
 </script>
 
 <script lang="ts">
 import moment from "moment";
 
+interface Data {
+  duration: string;
+}
+
 export default {
-  data() {
+  data(): Data {
     return {
       duration: "",
     };
   },
   methods: {
-    onDurationChange() {
+    onDurationChange(): void {
       const audioPlayer = document.getElementById(
         `audio-${this.id}`
       ) as HTMLAudioElement | null;
@@ -33,8 +38,13 @@ export default {
           .format("m:ss");
       }
     },
-    handleTimeUpdate(e: any) {
-      this.onChangeDuration(e.target.currentTime);
+    handleTimeUpdate(e: Event): void {
+      if (e.target) {
+        this.onChangeDuration((e.target as HTMLAudioElement).currentTime);
+      }
+    },
+    onAudioEnd(): void {
+      this.handleEnded();
     },
   },
 };
@@ -51,6 +61,7 @@ export default {
   <audio
     v-on:durationchange="onDurationChange"
     v-on:timeupdate="handleTimeUpdate"
+    v-on:ended="onAudioEnd"
     :id="`audio-${id}`"
   >
     <source :src="url" type="audio/mpeg" />

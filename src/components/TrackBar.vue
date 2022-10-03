@@ -1,29 +1,28 @@
 <script setup lang="ts">
-defineProps({
-  duration: {
-    type: Number,
-    default: 100,
-  },
-  activeDuration: {
-    type: Number,
-    default: 0,
-  },
-  handleSetActiveDuration: {
-    type: Function,
-    required: true,
-  },
-});
+interface TrackBarProps {
+  duration: number;
+  activeDuration: number;
+  handleSetActiveDuration: Function;
+  durationType: string;
+  durationName?: string;
+}
+
+defineProps<TrackBarProps>();
 </script>
 
 <script lang="ts">
+import moment from "moment";
+
 export default {
   methods: {
-    onClickBar(e: any) {
-      const width = e.target.offsetWidth;
-      const clickedWidth = e.offsetX;
-      const percentage = (clickedWidth / width) * 100;
-      const activeDuration = (this.duration / 100) * percentage;
-      this.handleSetActiveDuration(activeDuration);
+    onClickBar(e: MouseEvent) {
+      if (e.target) {
+        const width = (e.target as HTMLElement).offsetWidth;
+        const clickedWidth = e.offsetX;
+        const percentage = (clickedWidth / width) * 100;
+        const activeDuration = (this.duration / 100) * percentage;
+        this.handleSetActiveDuration(activeDuration);
+      }
     },
   },
 };
@@ -31,6 +30,14 @@ export default {
 
 <template>
   <div class="track">
+    <div v-if="activeDuration > 0" class="track__timer">
+      {{ durationName ? `${durationName} ` : "" }}
+      {{
+        durationType === "seconds"
+          ? moment.utc(activeDuration * 1000).format("mm:ss")
+          : Math.floor(activeDuration * 100) + "%"
+      }}
+    </div>
     <div class="track__bar" :onclick="onClickBar" />
     <div
       class="track__active"
@@ -45,7 +52,6 @@ export default {
 .track {
   width: 100%;
   height: 10px;
-  overflow: hidden;
   position: relative;
   background-color: rgb(205, 205, 205);
   border-radius: 5px;
@@ -71,5 +77,12 @@ export default {
   left: 0;
   top: 0;
   z-index: 0;
+}
+
+.track__timer {
+  position: absolute;
+  top: -15px;
+  right: 0;
+  font-size: 12px;
 }
 </style>
